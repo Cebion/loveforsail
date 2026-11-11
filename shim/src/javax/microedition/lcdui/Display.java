@@ -3,6 +3,7 @@ package javax.microedition.lcdui;
 import javax.microedition.midlet.MIDlet;
 
 public class Display {
+    /** Canvas size; the launcher sets midp.width/midp.height from the game version before this loads. */
     public static final int WIDTH = Integer.getInteger("midp.width", 240);
     public static final int HEIGHT = Integer.getInteger("midp.height", 320);
 
@@ -20,7 +21,28 @@ public class Display {
     }
 
     public void setCurrent(Displayable d) {
+        Displayable old = current;
+        if (old == d) {
+            return;
+        }
+        if (old instanceof Canvas) {
+            try {
+                ((Canvas) old).shimHide();
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+        }
         current = d;
+        if (d instanceof Canvas) {
+            try {
+                ((Canvas) d).shimShow();
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+            if (!(d instanceof javax.microedition.lcdui.game.GameCanvas)) {
+                ((Canvas) d).repaint();
+            }
+        }
     }
 
     public Displayable getCurrent() {

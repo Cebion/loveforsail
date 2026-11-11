@@ -48,6 +48,8 @@ public abstract class Canvas extends Displayable {
     private static final int EV_RELEASE = 2;
     private static final int EV_REPEAT = 3;
     private static final ArrayDeque<int[]> keyQueue = new ArrayDeque<>();
+    private static final Object dispatchLock = new Object();
+    private static volatile long lastDispatch;
 
     private BufferedImage screen;
 
@@ -182,6 +184,14 @@ public abstract class Canvas extends Displayable {
     protected void hideNotify() {
     }
 
+    void shimShow() {
+        showNotify();
+    }
+
+    void shimHide() {
+        hideNotify();
+    }
+
     public final void repaint() {
         repaint(0, 0, getWidth(), getHeight());
     }
@@ -224,8 +234,26 @@ public abstract class Canvas extends Displayable {
         }
     }
 
+    /**
+     * Keys are normally delivered on the game thread when it flushes a frame. A game that waits
+     * for a key without drawing (common in MIDP 1 style Canvas games) would never see it, so the
+     * host also delivers keys that have been waiting longer than maxAgeMs, as a phone would.
+     */
+    public static void dispatchIfStale(long maxAgeMs) {
+        if (hasPendingKeys() && System.currentTimeMillis() - lastDispatch > maxAgeMs) {
+            dispatchKeyEvents();
+        }
+    }
+
     /** Deliver queued key events to the current canvas. Runs on whichever thread flushes frames. */
     public static void dispatchKeyEvents() {
+        synchronized (dispatchLock) {
+            lastDispatch = System.currentTimeMillis();
+            dispatchLocked();
+        }
+    }
+
+    private static void dispatchLocked() {
         Displayable d = Display.current;
         if (!(d instanceof Canvas)) {
             return;

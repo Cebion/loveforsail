@@ -53,6 +53,25 @@ public class Graphics {
         g.dispose();
     }
 
+    // ---- shim internals (Nokia DirectGraphics) -------------------------------------
+
+    BufferedImage target() {
+        return target;
+    }
+
+    Graphics2D awt() {
+        return g;
+    }
+
+    int argbColor() {
+        return color;
+    }
+
+    void setArgbColor(int argb) {
+        color = argb;
+        g.setColor(new Color(argb, true));
+    }
+
     // ---- state ---------------------------------------------------------------------
 
     public void translate(int x, int y) {

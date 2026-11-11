@@ -14,11 +14,16 @@ import javax.microedition.midlet.MIDlet;
  *
  * Usage: java -cp lovesail-portmaster.jar LarryPortmaster game.jar
  *
+ * Any phone version of the game works: the screen size is taken from the file name, the
+ * manifest/JAD or the jar's full-screen images, and the soft key codes from the game's code
+ * (see GameProfile).
+ *
  * The game jar is loaded through GameLoader (not the classpath) so its resources can be patched.
  *
  * System properties:
- *   midp.width / midp.height   canvas size (default 240x320)
- *   midp.window=WxH            windowed mode for desktop testing (default: fullscreen)
+ *   midp.width / midp.height   canvas size (default: detected)
+ *   midp.softkeys=L,R          soft key codes (default: detected, usually -6,-7)
+ *   midp.window=WxH or N       windowed mode for desktop testing, N = scale (default: fullscreen)
  *   midp.rms.dir               save directory (default ./savedata)
  *   midp.soundfont             optional .sf2 for MIDI
  *   midp.dump.dir / midp.dump.every   debug: write every Nth frame as PNG
@@ -31,7 +36,30 @@ public final class LarryPortmaster {
     private static boolean frameReady;
     private static volatile boolean running = true;
 
+    private static int softLeft = Canvas.KEYCODE_SOFT_LEFT;
+    private static int softRight = Canvas.KEYCODE_SOFT_RIGHT;
+
     public static void main(String[] args) throws Exception {
+        if (args.length < 1 || !new File(args[0]).isFile()) {
+            System.err.println("[host] usage: LarryPortmaster <game.jar>");
+            System.exit(2);
+        }
+        File jar = new File(args[0]);
+        GameLoader loader = new GameLoader(jar.toURI().toURL(), LarryPortmaster.class.getClassLoader());
+        MIDlet.LarryHost.setGameLoader(loader);
+        Thread.currentThread().setContextClassLoader(loader);
+
+        // Each phone build of a game has its own screen size and soft key codes. This has to be
+        // set before Display is first touched, because Display reads midp.width/midp.height.
+        GameProfile profile = GameProfile.detect(jar, MIDlet.getAppProperties());
+        System.setProperty("midp.width", Integer.toString(profile.width));
+        System.setProperty("midp.height", Integer.toString(profile.height));
+        softLeft = profile.softLeft;
+        softRight = profile.softRight;
+        System.out.println("[host] " + jar.getName() + ": screen " + profile.width + "x" + profile.height
+                + " (" + profile.sizeSource + "), soft keys " + softLeft + "/" + softRight
+                + " (" + profile.softSource + ")");
+
         final int gw = Display.WIDTH;
         final int gh = Display.HEIGHT;
         int winW = 0;
@@ -40,6 +68,10 @@ public final class LarryPortmaster {
         if (win != null && win.contains("x")) {
             winW = Integer.parseInt(win.substring(0, win.indexOf('x')));
             winH = Integer.parseInt(win.substring(win.indexOf('x') + 1));
+        } else if (win != null && !win.isEmpty()) {
+            int scale = Math.max(1, Integer.parseInt(win.trim()));   // "2": window at 2x the game size
+            winW = gw * scale;
+            winH = gh * scale;
         }
         if (!SDL2Bridge.init(gw, gh, winW, winH)) {
             System.err.println("[host] SDL2 init failed");
@@ -63,20 +95,24 @@ public final class LarryPortmaster {
             }
         };
         MIDlet.LarryHost.setExitHandler(() -> running = false);
-
-        if (args.length < 1 || !new File(args[0]).isFile()) {
-            System.err.println("[host] usage: LarryPortmaster <game.jar>");
-            SDL2Bridge.destroy();
-            System.exit(2);
-        }
-        GameLoader loader = new GameLoader(new File(args[0]).toURI().toURL(), LarryPortmaster.class.getClassLoader());
-        MIDlet.LarryHost.setGameLoader(loader);
-        Thread.currentThread().setContextClassLoader(loader);
+        Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
+            e.printStackTrace();
+            reportMissingApi(e);
+        });
 
         String midletClass = midletClassName();
         System.out.println("[host] starting MIDlet " + midletClass + " at " + gw + "x" + gh);
-        MIDlet midlet = (MIDlet) Class.forName(midletClass, true, loader).getDeclaredConstructor().newInstance();
-        MIDlet.LarryHost.start(midlet);
+        MIDlet midlet;
+        try {
+            midlet = (MIDlet) Class.forName(midletClass, true, loader).getDeclaredConstructor().newInstance();
+            MIDlet.LarryHost.start(midlet);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            reportMissingApi(e);
+            SDL2Bridge.destroy();
+            System.exit(3);
+            return;
+        }
 
         ArrayList<long[]> script = loadScript(System.getProperty("midp.script"));
         long t0 = System.currentTimeMillis();
@@ -114,6 +150,7 @@ public final class LarryPortmaster {
                     frameReady = false;
                 }
             }
+            Canvas.dispatchIfStale(100);
             if (have) {
                 SDL2Bridge.updateFrame(frame, gw, gh);
             } else {
@@ -131,6 +168,19 @@ public final class LarryPortmaster {
         SDL2Bridge.destroy();
         System.out.println("[host] exit");
         System.exit(0);
+    }
+
+    /** Point at the shim when a game version uses a phone API it does not provide yet. */
+    private static void reportMissingApi(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof NoClassDefFoundError || t instanceof ClassNotFoundException
+                    || t instanceof NoSuchMethodError || t instanceof NoSuchFieldError
+                    || t instanceof AbstractMethodError) {
+                System.err.println("[host] this game version uses an API the shim does not provide: "
+                        + t.getMessage());
+                return;
+            }
+        }
     }
 
     private static String midletClassName() {
@@ -159,9 +209,9 @@ public final class LarryPortmaster {
             case 44: return Canvas.KEY_NUM5;            // Space
             case 42: return Canvas.KEY_NUM0;            // Backspace
             case 41:                                    // Escape (Start): pause menu
-            case 59: return Canvas.KEYCODE_SOFT_RIGHT;  // F2
+            case 59: return softRight;                  // F2
             case 43:                                    // Tab (Select)
-            case 58: return Canvas.KEYCODE_SOFT_LEFT;   // F1
+            case 58: return softLeft;                   // F1
             case 75:                                    // PageUp
             case 85: return Canvas.KEY_STAR;            // Keypad *
             case 78: return Canvas.KEY_POUND;           // PageDown
