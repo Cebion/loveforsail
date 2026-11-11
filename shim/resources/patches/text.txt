@@ -1,0 +1,107 @@
+# Button prompts for the gamepad keypad layout used by this port:
+#   L1=1  Up=2    R1=3
+#   Left=4 A=5  Right=6
+#   L2=7  Down=8  R2=9
+#         B=0          X=*  Y=#
+# "@file COUNT" starts a section, applied only if the table has COUNT strings.
+# '|' is the game's own hyphenation mark.
+
+@english.dat 1166
+41=D-Pad up: Move the character up
+47=D-Pad down: Move the character down
+51=Y: Display help
+52=D-Pad left: Move the character left
+53=D-Pad right: Move the character right
+54=A: Pop up action menu / Validate action
+55=B: Cancel last interaction menu action / Exit dialogue topics list
+56=X: Inventory shortcut / Exit interaction menu
+59=L1, R1, L2 and R2, or two D-Pad directions: Move the character diagonally
+76=Press the button shown before it disappears.
+77=Miss 5 buttons and you're out!
+78=Press A to start.
+108=Press any button to resume game.
+158=Use the A button to display the interaction menu and to validate. To exit the menu and return to exploration press B. You can take a look at the environment or at objects using the 'EYE' icon.
+159=OK, Let's check out this mail. Use the D-Pad to walk around and reach the letter.
+160=Hmm... Let's see. Press left or right in the interaction menu to browse through the available interaction icons. Select the 'HAND' icon to pick the object up.
+161=Picked up objects are added to your inventory. To access the inventory, press X. Take a look at the letter in your inventory using the 'EYE' icon.
+168=You can use objects from your inventory on items such as the doors. Select the 'HAND TOOL +' icon from the interaction menu on the door. Then, select the object you want to use it with and press A to validate.
+173=When using a phone, you can browse the topics list using up and down. Validate your choice with A. You can exit the topics list by pressing B.
+
+@french.dat 1166
+41=Croix directionnelle haut : Déplacer le personnage vers le haut
+47=Croix directionnelle bas : Déplacer le personnage vers le bas
+51=Y : Afficher aide
+52=Croix directionnelle gauche : Déplacer le personnage vers la gauche
+53=Croix directionnelle droite : Déplacer le personnage vers la droite
+54=A : Afficher menu action / valider l'action
+55=B : Annuler la dernière action dans le menu interactions / quitter liste de sujets de dialogue
+56=X : Raccourci inventaire / quitter le menu interactions
+59=L1, R1, L2 et R2, ou deux directions : Déplacer le personnage en diagonale
+76=Appuie sur le bouton affiché avant qu'il ne disparaisse.
+78=Appuie sur A pour commencer.
+108=Appuyez sur un bouton pour continuer la partie.
+158=Utilise le bouton A pour aller dans le menu interactions et pour valider. Pour quitter le menu, appuie sur B. Tu peux examiner l'environne|ment et les objets en sélectionnant l'icône 'OEIL'.
+159=Ok ! Allons voir ce courrier. Utilise la croix directionnelle pour te diriger.
+160=Heu... Voyons voir. Appuie sur gauche ou droite dans le menu interactions pour faire défiler les icônes d'action disponibles. Utilise l'icône 'MAIN' pour prendre l'objet.
+161=Le bouton X te permet d'accéder à l'inventaire contenant les objets ramassés. Jette un oeil sur la lettre de ton inventaire avec l'icône 'OEIL'.
+168=Tu peux utiliser les objets de ton inventaire sur les éléments comme les portes. Sélectionne l'icône 'MAIN OUTIL +' dans le menu d'interactions de la porte. Puis, sélectionne l'objet à utiliser et appuie sur A pour valider.
+173=Quand tu utilises un téléphone, tu peux faire défiler les sujets avec haut et bas. Valide ton choix avec A. Tu peux quitter la liste de sujets avec B.
+
+@german.dat 1166
+41=Steuerkreuz oben: Die Figur nach oben bewegen
+47=Steuerkreuz unten: Die Figur nach unten bewegen
+51=Y: Hilfe anzeigen
+52=Steuerkreuz links: Die Figur nach links bewegen
+53=Steuerkreuz rechts: Die Figur nach rechts bewegen
+54=A: Aktionsmenü anzeigen / Aktion bestätigen
+55=B: Die letzte Aktion im Interak|tionenmenü abbrechen / Liste der Gesprächs|themata verlassen
+56=X: Verknüpfung zum Inventar / Interak|tionenmenü verlassen
+59=L1, R1, L2 bzw. R2 oder zwei Richtungen: Die Figur diagonal bewegen
+76=Drücke die angezeigte Taste, bevor sie verschwin|det.
+78=Drücke A, um zu starten.
+158=Drücke A, um ins Interaktionen|menü zu gelangen und zu bestätigen. Drücke B, um das Menü zu verlassen. Benutze das 'AUGE'-Symbol, um dein Umfeld und die Objekte zu beobachten.
+159=OK! Benutze das Steuerkreuz, um dich zu bewegen und den Brief zu erreichen.
+160=So... Drücke links bzw. rechts, um die verfügbaren Aktionssym|bole zu scrollen. Benutze das 'HAND'-Symbol, um das Objekt zu greifen.
+161=Drücke X, um zum Inventar mit den aufgeho|benen Objekten zu gelangen. Wirf ein Auge auf den Brief im Inventar mit dem 'AUGE'-Symbol.
+168=Du kannst Objekte aus dem Inventar auf anderen Objekten benutzen, wie z. B. Türe. Wähle das 'HAND WERKZEUG +'-Symbol im Interaktionen|menü der Tür aus. Selektiere dann das Objekt, das du benutzen willst, und drücke A, um dies zu bestätigen.
+173=Wenn du das Telefon benutzt, drücke oben bzw. unten, um die Gesprächs|themata zu scrollen. Drücke A, um deine Auswahl zu bestätigen. Drücke B, um die Liste zu verlassen.
+
+@italian.dat 1166
+41=Croce direzionale in alto: Muovere il personaggio verso l'alto
+47=Croce direzionale in basso: Muovere il personaggio verso il basso
+51=Y: Visualizzare aiuto
+52=Croce direzionale sinistra: Muovere il personaggio verso sinistra
+53=Croce direzionale destra: Muovere il personaggio verso destra
+54=A: Visualizzare il menu azione / Validare l'azione
+55=B: Annullare l'ultima azione nel menu interazioni / Uscire dalla lista dei temi di dialogo
+56=X: Scorciatoia inventario / Uscire dal menu interazioni
+59=L1, R1, L2 e R2, o due direzioni: Spostare il personaggio in diagonale.
+76=Premi il pulsante visualizzato sullo schermo prima che scompaia.
+78=Premi A per iniziare.
+108=Premi un pulsante per riprendere il gioco.
+158=Utilizza il pulsante A per andare nel menu Interazioni e per validare. Per lasciare il menu premi B. Puoi esaminare quel che c'è intorno e gli oggetti selezionando l'icona 'OCCHIO'.
+159=Ok! Andiamo a vedere la posta. Usa la croce direzionale per dirigerti.
+160=Hmm... Vediamo un po'. Premi sinistra o destra nel menu Interazioni per passare in rivista le icone disponibili. Usa l'icona 'MANO' per prendere l'oggetto.
+161=Il pulsante X ti permette di accedere all'inventario che contiene gli oggetti raccolti. Dai un'occhiata alla lettera nel tuo inventario con l'icona 'OCCHIO'.
+168=Puoi usare gli oggetti del tuo inventario sugli elementi come le porte. Seleziona la chiave con l'icona 'MANO ATTREZZO +' nel menu Interazioni della porta. In seguito, spostati verso l'oggetto che vuoi usare e premi A per validare.
+173=Quando usi il telefono, puoi passare in rivista i temi con la croce direzionale. Valida la tua scelta con A. Puoi lasciare la lista dei temi con B.
+
+@spanish.dat 1166
+41=Cruceta arriba: Mover al personaje hacia arriba
+47=Cruceta abajo: Mover al personaje hacia abajo
+51=Y: Visualizar ayuda
+52=Cruceta izquierda: Mover al personaje hacia la izquierda
+53=Cruceta derecha: Mover al personaje hacia la derecha
+54=A: Visualizar menú Inter|acciones / Validar la acción
+55=B: Cancelar la última acción en el menú Inter|acciones / Salir de la lista de temas de diálogo
+56=X: Atajo inventario / Salir del menú Inter|acciones
+59=L1, R1, L2 y R2, o dos direcciones: Mover al personaje en diagonal
+76=Pulsa el botón que se visualiza antes de que desaparezca.
+78=Pulsa A para empezar.
+108=Pulsa cualquier botón para continuar la partida.
+158=Utiliza el botón A para ir al menú Inter|acciones y para validar. Para salir del menú, pulsa B. Puedes examinar el entorno y los objetos seleccion|ando el icono 'OJO'.
+159=¡Vale! Vayamos a ver ese correo. Utiliza la cruceta para dirigirte.
+160=Ah... Veamos. Pulsa izquierda o derecha en el menú Inter|acciones para hacer desfilar los iconos de interacciones disponibles. Utiliza el icono 'MANO' para coger el objeto.
+161=El botón X te permite acceder al inventario conteniendo los objetos recogidos. Echa una ojeada a la carta en tu inventario con el icono 'OJO'.
+168=Puedes utilizar los objetos de tu inventario sobre los elementos como las puertas. Selecciona el icono 'MANO HERRA|MIENTA +' en el menú Inter|acciones de la puerta. Luego selecciona el objeto que quieres utilizar y pulsa A para validar.
+173=Cuando utilizas un teléfono, puedes hacer desfilar los temas con arriba y abajo. Valida tu selección con A. Puedes salir de la lista de temas con B.

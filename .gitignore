@@ -1,0 +1,12 @@
+# Build output
+build/
+bridge/libsdl2bridge.so
+*.class
+
+# Game files are not redistributed: supply your own copy
+*.jar
+!/shim/**/*.jar
+
+# Runtime data
+savedata/
+conf/
