@@ -138,11 +138,18 @@ final class ResourcePatches {
 
     private static final String MINIGAME_SHEET = "biminig_button.png";
 
-    /** Digit glyph boxes in biminig_button.png (70x96): {digit, x, y, w, h}. */
+    /** Digit glyph boxes in the 70x96 biminig_button.png (240x320 build): {digit, x, y, w, h}. */
     private static final int[][] GLYPHS = {
         {3, 23, 54, 10, 13}, {4, 35, 53, 11, 15}, {5, 48, 55, 10, 12}, {1, 59, 55, 9, 13},
         {9, 23, 69, 10, 12}, {0, 35, 69, 10, 12},
         {6, 1, 83, 11, 12}, {7, 13, 82, 13, 14}, {8, 27, 82, 12, 13}, {2, 57, 83, 10, 12},
+    };
+
+    /** The same glyphs in the 36x51 sheet of the 128x128 full build (s40v2a). */
+    private static final int[][] GLYPHS_SMALL = {
+        {3, 18, 28, 6, 7}, {4, 24, 28, 5, 7}, {5, 29, 28, 7, 7},
+        {1, 11, 35, 6, 8}, {9, 17, 35, 5, 8}, {0, 22, 35, 6, 8},
+        {6, 4, 43, 6, 8}, {7, 10, 43, 6, 8}, {8, 16, 43, 6, 8}, {2, 29, 43, 7, 8},
     };
 
     /** Button label per digit, matching the port's keypad layout. */
@@ -165,13 +172,19 @@ final class ResourcePatches {
             return data;
         }
         BufferedImage src = ImageIO.read(new ByteArrayInputStream(data));
-        if (src == null || src.getWidth() != 70 || src.getHeight() != 96) {
+        int[][] glyphs = null;
+        if (src != null && src.getWidth() == 70 && src.getHeight() == 96) {
+            glyphs = GLYPHS;
+        } else if (src != null && src.getWidth() == 36 && src.getHeight() == 51) {
+            glyphs = GLYPHS_SMALL;
+        }
+        if (glyphs == null) {
             System.out.println("[patch] " + MINIGAME_SHEET + " has an unexpected size; left unchanged");
             return data;
         }
-        BufferedImage img = new BufferedImage(70, 96, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage img = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_ARGB);
         img.getGraphics().drawImage(src, 0, 0, null);
-        for (int[] g : GLYPHS) {
+        for (int[] g : glyphs) {
             drawLabel(img, LABELS[g[0]], g[1], g[2], g[3], g[4]);
         }
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -209,8 +222,18 @@ final class ResourcePatches {
             }
         }
         boolean[][] mask = new boolean[h][w];
+        boolean small = h < 12;
         if (label.length() == 1 && "^v<>".indexOf(label.charAt(0)) >= 0) {
             arrow(mask, label.charAt(0), w, h);
+        } else if (small && label.length() == 1) {
+            blit(mask, FONT.get(label.charAt(0)), (w - 3) / 2, (h - 5) / 2, 1, 1);
+        } else if (small) {
+            // Two characters in a ~6 px box: 3x5 font at 1x, a gap only if it fits.
+            int gap = w >= 8 ? 1 : 0;
+            int x0 = (w - 6 - gap) / 2;
+            int y0 = (h - 5) / 2;
+            blit(mask, FONT.get(label.charAt(0)), x0, y0, 1, 1);
+            blit(mask, FONT.get(label.charAt(1)), x0 + 3 + gap, y0, 1, 1);
         } else if (label.length() == 1) {
             // Single letter: 3x5 font scaled 2x, centred.
             blit(mask, FONT.get(label.charAt(0)), (w - 6) / 2, (h - 10) / 2, 2, 2);
@@ -270,17 +293,18 @@ final class ResourcePatches {
         }
     }
 
-    /** A chunky 2px-stroke arrow filling most of the box. */
+    /** An arrow filling most of the box: 2px strokes, 1px in small boxes. */
     private static void arrow(boolean[][] m, char dir, int w, int h) {
         int s = Math.min(w, h) - 1;
+        boolean thin = s < 8;
         int ox = (w - s) / 2;
         int oy = (h - s) / 2;
         int c = s / 2;
         for (int v = 0; v < s; v++) {        // v: distance from the tip
             for (int u = 0; u < s; u++) {    // u: across the arrow
                 int d = Math.abs(u - c);
-                boolean shaft = d <= 1 && v >= 1;
-                boolean head = v <= c + 1 && d <= v && d >= v - 2;
+                boolean shaft = (thin ? d == 0 : d <= 1) && v >= 1;
+                boolean head = v <= c + 1 && d <= v && d >= v - (thin ? 0 : 2);
                 if (!shaft && !head) {
                     continue;
                 }

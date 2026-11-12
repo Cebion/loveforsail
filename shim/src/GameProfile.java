@@ -87,12 +87,47 @@ final class GameProfile {
             set(s[0], s[1], "manifest Nokia-MIDlet-Original-Display-Size");
             return;
         }
-        // Nokia Series 40 (1st/2nd edition) phones were 128x128 and took jars of at most 64 KB.
-        if (jar.length() <= 64 * 1024 && classesMention(jar, "com/nokia/mid/ui/FullCanvas")) {
-            set(128, 128, "Nokia Series 40 build (FullCanvas, jar under 64 KB)");
+        // Small Nokia Series 40 builds (1st/2nd edition phones, 128x128) use the Nokia UI or Sound
+        // API and stay well under 128 KB; the Larry builds are 62 KB (MIDP 1.0) and 126 KB (MIDP 2.0).
+        if (jar.length() <= 128 * 1024 && classesMention(jar, "com/nokia/mid/")) {
+            set(128, 128, "Nokia Series 40 build (Nokia API, jar under 128 KB)");
+            return;
+        }
+        // Art for a 128-pixel-wide screen: no image wider than 160 px (larger screens always have
+        // wider backgrounds, logos or title screens). Catches the full Series 40 Larry build (MIDP
+        // 2.0, no Nokia API, widest 149 px) and the Samsung E250 build (widest 160 px). Samsung's
+        // small phones were 128x160, Nokia's 128x128.
+        int widest = widestImage(jar);
+        if (widest > 0 && widest <= 160) {
+            if (classesMention(jar, "com/samsung/")) {
+                set(128, 160, "small-screen art (widest image " + widest + " px), Samsung build");
+            } else {
+                set(128, 128, "small-screen art (widest image " + widest + " px)");
+            }
             return;
         }
         set(240, 320, "default, could not detect; set -Dmidp.width/-Dmidp.height");
+    }
+
+    /** Width of the widest PNG in the jar, or 0 if it has none. */
+    private static int widestImage(File jar) {
+        int widest = 0;
+        try (JarFile jf = new JarFile(jar)) {
+            for (Enumeration<JarEntry> e = jf.entries(); e.hasMoreElements();) {
+                JarEntry je = e.nextElement();
+                if (je.isDirectory() || je.getName().endsWith(".class")) {
+                    continue;
+                }
+                try (InputStream in = jf.getInputStream(je)) {
+                    byte[] h = in.readNBytes(24);
+                    if (h.length == 24 && (h[0] & 0xFF) == 0x89 && h[1] == 'P' && h[2] == 'N' && h[3] == 'G') {
+                        widest = Math.max(widest, be32(h, 16));
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return widest;
     }
 
     /** True when any class in the jar references the given internal class name. */

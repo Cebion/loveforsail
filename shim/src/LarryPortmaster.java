@@ -28,6 +28,8 @@ import javax.microedition.midlet.MIDlet;
  *   midp.soundfont             optional .sf2 for MIDI
  *   midp.toneprogram           General MIDI instrument for Nokia ringtones (default 0, grand piano)
  *   midp.tonecycle=true        debug: F5/F6 step through candidate ringtone instruments, number shown
+ *   midp.tonearrange=false     play Nokia ringtones as the bare melody (no added bass and drums)
+ *   midp.mididebug=true        debug: print the synthesizer's program per channel every 2 s
  *   midp.dump.dir / midp.dump.every   debug: write every Nth frame as PNG
  *   midp.script                debug: file of "ms down|up keycode" lines for scripted input
  *   midp.keyfifo               debug: named pipe of "down|up keycode" lines, read live
@@ -85,6 +87,12 @@ public final class LarryPortmaster {
             System.err.println("[host] SDL2 init failed");
             System.exit(1);
         }
+
+        // Load the synthesizer and soundfont during the logos, not when the first song starts.
+        Thread midiPreload = new Thread(javax.microedition.media.ShimMidi::preload, "midi-preload");
+        midiPreload.setDaemon(true);
+        midiPreload.setPriority(Thread.MIN_PRIORITY);
+        midiPreload.start();
 
         pendingFrame = new int[gw * gh];
         final String dumpDir = System.getProperty("midp.dump.dir");

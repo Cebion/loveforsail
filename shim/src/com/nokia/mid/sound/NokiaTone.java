@@ -81,6 +81,8 @@ final class NokiaTone {
     /** Receives the decoded melody. note: 1..12 = C..B, 0 = pause; octave: 0 = scale-1 (A = 440 Hz). */
     private interface Out {
         void note(int note, int octave, int ms, int onMs, int volume);
+
+        void tempo(int bpm);
     }
 
     private void render(Out pcm) {
@@ -99,6 +101,7 @@ final class NokiaTone {
                 }
                 int patterns = read(8);
                 State st = new State();
+                pcm.tempo(st.bpm);
                 for (int p = 0; p < patterns && more(17); p++) {
                     read(3);
                     int id = read(2);
@@ -155,6 +158,7 @@ final class NokiaTone {
                         break;
                     case 4:
                         st.bpm = BPM[read(5)];
+                        pcm.tempo(st.bpm);
                         break;
                     case 5:
                         st.volume = read(4);
@@ -175,57 +179,54 @@ final class NokiaTone {
         int volume = 7;
     }
 
-    /** Single-track SMF, 480 ticks per quarter at 125 BPM: one tick per millisecond. */
+    /**
+     * Writes the melody plus, unless -Dmidp.tonearrange=false, a simple accompaniment derived from
+     * it: every two beats the triad of the song's key (I ii iii IV V vi) that best covers the melody
+     * notes sets a bass note (root, or the fifth when the chord doesn't change), over a soft lounge groove (hi-hat eighths, kick on
+     * 1 and 3, side stick on 2 and 4). Ringtones carry only one voice, so this is all invention.
+     * One-track SMF (format 0), 480 ticks per quarter at 125 BPM: one tick per millisecond.
+     */
     private static final class Midi implements Out {
-        private final ByteArrayOutputStream track = new ByteArrayOutputStream();
+        private static final int BASS_PROGRAM = 32;   // acoustic bass
         private final int program;
-        private long pendingMs;
+        private final boolean arrange = !"false".equals(System.getProperty("midp.tonearrange"));
+        /** Melody notes: {startMs, lengthMs, key, velocity}. */
+        private final java.util.List<int[]> melody = new java.util.ArrayList<>();
+        private long timeMs;
+        private int bpm = -1;
         int notes;
 
         Midi(int program) {
             this.program = Math.max(0, Math.min(127, program));
-            event(0, 0xC0, this.program, -1);
+        }
+
+        public void tempo(int b) {
+            if (bpm < 0 || notes == 0) {
+                bpm = b;    // the groove follows the tempo the tune starts with
+            }
         }
 
         public void note(int note, int octave, int ms, int onMs, int volume) {
-            if (note == 0) {
-                pendingMs += ms;
-                return;
+            if (note != 0) {
+                int key = Math.max(0, Math.min(127, 69 + (note - 10) + 12 * octave));
+                int vel = Math.max(1, Math.min(127, 40 + volume * 6));
+                melody.add(new int[] {(int) timeMs, Math.max(1, onMs), key, vel});
+                notes++;
             }
-            int key = Math.max(0, Math.min(127, 69 + (note - 10) + 12 * octave));
-            int vel = Math.max(1, Math.min(127, 40 + volume * 6));
-            event(pendingMs, 0x90, key, vel);
-            event(onMs, 0x80, key, 0);
-            pendingMs = ms - onMs;
-            notes++;
-        }
-
-        private void event(long delta, int status, int a, int b) {
-            writeVar(delta);
-            track.write(status);
-            track.write(a);
-            if (b >= 0) {
-                track.write(b);
-            }
-        }
-
-        private void writeVar(long v) {
-            long buf = v & 0x7F;
-            while ((v >>= 7) > 0) {
-                buf <<= 8;
-                buf |= ((v & 0x7F) | 0x80);
-            }
-            while (true) {
-                track.write((int) (buf & 0xFF));
-                if ((buf & 0x80) != 0) {
-                    buf >>= 8;
-                } else {
-                    break;
-                }
-            }
+            timeMs += ms;
         }
 
         byte[] smf() {
+            java.util.List<long[]> ev = new java.util.ArrayList<>();   // {time, order, status, d1, d2}
+            ev.add(new long[] {0, 0, 0xC0, program, -1});
+            for (int[] n : melody) {
+                ev.add(new long[] {n[0], 2, 0x90, n[2], n[3]});
+                ev.add(new long[] {n[0] + n[1], 1, 0x80, n[2], 0});
+            }
+            if (arrange && !melody.isEmpty()) {
+                accompany(ev);
+            }
+            ev.sort((a, b) -> a[0] != b[0] ? Long.compare(a[0], b[0]) : Long.compare(a[1], b[1]));
             ByteArrayOutputStream t = new ByteArrayOutputStream();
             // tempo 480000 us per quarter (125 BPM) with 480 ticks per quarter = 1 ms per tick
             t.write(0);
@@ -235,9 +236,17 @@ final class NokiaTone {
             t.write(0x07);
             t.write(0x53);
             t.write(0x00);
-            byte[] body = track.toByteArray();
-            t.write(body, 0, body.length);
-            writeVarTo(t, pendingMs);
+            long last = 0;
+            for (long[] e : ev) {
+                writeVar(t, e[0] - last);
+                last = e[0];
+                t.write((int) e[2]);
+                t.write((int) e[3]);
+                if (e[4] >= 0) {
+                    t.write((int) e[4]);
+                }
+            }
+            writeVar(t, Math.max(0, timeMs - last));
             t.write(0xFF);
             t.write(0x2F);
             t.write(0);
@@ -254,12 +263,116 @@ final class NokiaTone {
             return f.toByteArray();
         }
 
-        private static void writeVarTo(ByteArrayOutputStream o, long v) {
-            Midi m = new Midi(0);
-            m.track.reset();
-            m.writeVar(v);
-            byte[] b = m.track.toByteArray();
-            o.write(b, 0, b.length);
+        private void accompany(java.util.List<long[]> ev) {
+            int beat = (int) Math.round(60000.0 / (bpm > 0 ? bpm : 63));
+            int bar = beat * 4;
+            int bars = (int) Math.max(1, (timeMs + bar / 2) / bar);
+            int key = songKey();
+            ev.add(new long[] {0, 0, 0xC1, BASS_PROGRAM, -1});
+            int[] chord = null;
+            for (int b = 0; b < bars; b++) {
+                long t0 = (long) b * bar;
+                for (int half = 0; half < 2; half++) {    // chords change every two beats
+                    long h0 = t0 + half * beat * 2;
+                    int[] c = chordFor(h0, h0 + beat * 2, key);
+                    boolean same = c == null || (chord != null && c[0] == chord[0]);
+                    if (c != null) {
+                        chord = c;
+                    }
+                    if (chord != null) {
+                        int root = 36 + chord[0];         // C2..B2
+                        int fifth = root + 7 > 52 ? root - 5 : root + 7;
+                        bass(ev, h0, beat * 2 - 40, half == 1 && same ? fifth : root);
+                    }
+                }
+                for (int e8 = 0; e8 < 8; e8++) {         // hi-hat eighths, a little swing on the offbeat
+                    long t = t0 + e8 * beat / 2 + (e8 % 2 == 1 ? beat / 12 : 0);
+                    drum(ev, t, 42, e8 % 2 == 0 ? 46 : 34);
+                }
+                drum(ev, t0, 36, 64);
+                drum(ev, t0 + beat * 2, 36, 56);
+                drum(ev, t0 + beat, 37, 50);
+                drum(ev, t0 + beat * 3, 37, 50);
+            }
+        }
+
+        /** Major key (tonic pitch class) whose scale covers most of the melody, by duration. */
+        private int songKey() {
+            double[] w = new double[12];
+            for (int[] n : melody) {
+                w[n[2] % 12] += n[1];
+            }
+            int[] scale = {0, 2, 4, 5, 7, 9, 11};
+            int best = 0;
+            double bestScore = -1;
+            for (int k = 0; k < 12; k++) {
+                double sc = w[k] * 0.5 + w[(k + 7) % 12] * 0.25;   // tonic and dominant a bit more
+                for (int d : scale) {
+                    sc += w[(k + d) % 12];
+                }
+                if (sc > bestScore) {
+                    bestScore = sc;
+                    best = k;
+                }
+            }
+            return best;
+        }
+
+        /** Best of the key's I ii iii IV V vi triads for the melody in [from, to): {root pc, minor}. */
+        private int[] chordFor(long from, long to, int key) {
+            double[] weight = new double[12];
+            boolean any = false;
+            for (int[] n : melody) {
+                long s = Math.max(from, n[0]);
+                long e = Math.min(to, n[0] + n[1]);
+                if (e > s) {
+                    weight[n[2] % 12] += e - s;
+                    any = true;
+                }
+            }
+            if (!any) {
+                return null;
+            }
+            int[][] degrees = {{0, 0}, {5, 0}, {7, 0}, {9, 1}, {2, 1}, {4, 1}};   // I IV V vi ii iii
+            double best = -1;
+            int[] out = null;
+            for (int i = 0; i < degrees.length; i++) {
+                int root = (key + degrees[i][0]) % 12;
+                int minor = degrees[i][1];
+                double score = weight[root] * 1.5 + weight[(root + (minor == 1 ? 3 : 4)) % 12]
+                        + weight[(root + 7) % 12] - 0.02 * i;    // ties go to the stronger degree
+                if (score > best) {
+                    best = score;
+                    out = new int[] {root, minor};
+                }
+            }
+            return out;
+        }
+
+        private static void bass(java.util.List<long[]> ev, long t, int len, int key) {
+            ev.add(new long[] {t, 2, 0x91, key, 78});
+            ev.add(new long[] {t + Math.max(60, len), 1, 0x81, key, 0});
+        }
+
+        private static void drum(java.util.List<long[]> ev, long t, int key, int vel) {
+            ev.add(new long[] {t, 2, 0x99, key, vel});
+            ev.add(new long[] {t + 60, 1, 0x89, key, 0});
+        }
+
+        private static void writeVar(ByteArrayOutputStream o, long v) {
+            long buf = v & 0x7F;
+            while ((v >>= 7) > 0) {
+                buf <<= 8;
+                buf |= ((v & 0x7F) | 0x80);
+            }
+            while (true) {
+                o.write((int) (buf & 0xFF));
+                if ((buf & 0x80) != 0) {
+                    buf >>= 8;
+                } else {
+                    break;
+                }
+            }
         }
 
         private static void writeStr(ByteArrayOutputStream w, String s) {

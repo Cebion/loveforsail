@@ -22,6 +22,8 @@ class MidiPlayer extends BasePlayer {
     private static Receiver synthReceiver;
     private static boolean engineFailed;
     private static MidiPlayer owner;
+    /** Headroom: a full arrangement at full volume clips. */
+    private static final float MASTER = 0.7f;
 
     private final byte[] data;
     private Sequence sequence;
@@ -41,15 +43,23 @@ class MidiPlayer extends BasePlayer {
             return false;
         }
         try {
+            long t0 = System.currentTimeMillis();
             synth = MidiSystem.getSynthesizer();
-            synth.open();
             String sf = System.getProperty("midp.soundfont");
-            if (sf != null && new File(sf).isFile()) {
+            boolean haveSf = sf != null && new File(sf).isFile();
+            boolean tuned = haveSf && openTuned(synth);
+            if (!tuned) {
+                synth.open();
+            }
+            if (haveSf) {
                 Soundbank bank = MidiSystem.getSoundbank(new File(sf));
                 if (synth.isSoundbankSupported(bank)) {
-                    synth.unloadAllInstruments(synth.getDefaultSoundbank());
+                    if (!tuned) {
+                        synth.unloadAllInstruments(synth.getDefaultSoundbank());
+                    }
                     synth.loadAllInstruments(bank);
-                    System.out.println("[media] loaded soundfont " + sf);
+                    System.out.println("[media] loaded soundfont " + sf + (tuned ? " (no reverb/chorus, 32 voices)" : "")
+                            + " in " + (System.currentTimeMillis() - t0) + " ms");
                 }
             }
             synthReceiver = synth.getReceiver();
@@ -70,6 +80,28 @@ class MidiPlayer extends BasePlayer {
                 }
             });
             System.out.println("[media] MIDI engine ready: " + synth.getDeviceInfo().getName());
+            if (Boolean.getBoolean("midp.mididebug")) {
+                Thread t = new Thread(() -> {
+                    while (true) {
+                        StringBuilder sb = new StringBuilder("[mididebug]");
+                        javax.sound.midi.MidiChannel[] chs = synth.getChannels();
+                        for (int c = 0; c < chs.length; c++) {
+                            if (chs[c] != null) {
+                                sb.append(' ').append(c).append(':').append(chs[c].getProgram());
+                            }
+                        }
+                        sb.append(" running=").append(sequencer.isRunning());
+                        System.out.println(sb);
+                        try {
+                            Thread.sleep(2000);
+                        } catch (InterruptedException e) {
+                            return;
+                        }
+                    }
+                }, "mididebug");
+                t.setDaemon(true);
+                t.start();
+            }
             return true;
         } catch (Throwable t) {
             System.out.println("[media] MIDI unavailable, music disabled: " + t);
@@ -77,6 +109,43 @@ class MidiPlayer extends BasePlayer {
             sequencer = null;
             return false;
         }
+    }
+
+    /**
+     * Gervill's own settings (com.sun.media.sound.AudioSynthesizer, not public API): skip its
+     * generated fallback instruments when a soundfont replaces them (2-3 s on an RK3326), and drop
+     * reverb and chorus, which cost CPU (crackling) and blur busy arrangements. Larger buffer, 32 voices.
+     */
+    private static boolean openTuned(Synthesizer s) {
+        try {
+            java.util.Map<String, Object> info = new java.util.HashMap<>();
+            info.put("load default soundbank", Boolean.FALSE);
+            info.put("reverb", Boolean.FALSE);
+            info.put("chorus", Boolean.FALSE);
+            info.put("max polyphony", 32);
+            info.put("latency", 200000L);
+            java.lang.reflect.Method open = null;
+            for (Class<?> c = s.getClass(); c != null && open == null; c = c.getSuperclass()) {
+                try {
+                    open = c.getDeclaredMethod("open", javax.sound.sampled.SourceDataLine.class, java.util.Map.class);
+                } catch (NoSuchMethodException ignored) {
+                }
+            }
+            if (open == null) {
+                return false;
+            }
+            open.setAccessible(true);
+            open.invoke(s, null, info);
+            return true;
+        } catch (Throwable t) {
+            System.out.println("[media] tuned synthesizer setup unavailable (" + t + "), using defaults");
+            return false;
+        }
+    }
+
+    /** Opens the synthesizer and loads the soundfont ahead of the first song (called at startup). */
+    static void preload() {
+        ensureEngine();
     }
 
     protected void doPrefetch() throws MediaException {
@@ -179,7 +248,7 @@ class MidiPlayer extends BasePlayer {
             if (fallback != null || synthReceiver == null || owner != this) {
                 return;
             }
-            int v = Math.round(gain() * 16383);
+            int v = Math.round(gain() * MASTER * 16383);
             try {
                 // Universal real-time SysEx: master volume (Gervill honours it).
                 byte[] msg = {(byte) 0xF0, 0x7F, 0x7F, 0x04, 0x01, (byte) (v & 0x7F), (byte) ((v >> 7) & 0x7F), (byte) 0xF7};

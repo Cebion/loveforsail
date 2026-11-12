@@ -40,6 +40,67 @@
 70=L1, R1, L2 and R2: Move the character diagonally
 110=Press any button to resume game.
 
+# Nokia Series 40 2nd edition (MIDP 2.0, 128x128) build, five languages
+@english.dat 305
+57=D-Pad up: Move the character up
+63=D-Pad down: Move the character down
+67=Y: Display help
+68=D-Pad left: Move the character left
+69=D-Pad right: Move the character right
+70=A: Pop up action menu / Validate action
+71=B: Cancel last interaction menu action
+72=X: Inventory shortcut / Exit interaction menu
+75=L1, R1, L2 and R2: Move the character diagonally
+117=Press any button to resume game.
+
+@french.dat 305
+57=Croix directionnelle haut : Déplacer le personnage vers le haut
+63=Croix directionnelle bas : Déplacer le personnage vers le bas
+67=Y : Afficher aide
+68=Croix directionnelle gauche : Déplacer le personnage vers la gauche
+69=Croix directionnelle droite : Déplacer le personnage vers la droite
+70=A : Afficher menu action / valider l'action
+71=B : Annuler la dernière action dans le menu interactions
+72=X : Raccourci inventaire / quitter le menu interactions
+75=L1, R1, L2 et R2 : Déplacer le personnage en diagonale
+117=Appuyez sur un bouton pour continuer la partie.
+
+@german.dat 305
+57=Steuerkreuz oben: Die Figur nach oben bewegen
+63=Steuerkreuz unten: Die Figur nach unten bewegen
+67=Y: Hilfe anzeigen
+68=Steuerkreuz links: Die Figur nach links bewegen
+69=Steuerkreuz rechts: Die Figur nach rechts bewegen
+70=A: Aktionsmenü anzeigen / Aktion bestätigen
+71=B: Die letzte Aktion im Interak|tionenmenü abbrechen
+72=X: Verknüpfung zum Inventar / Interak|tionenmenü verlassen
+75=L1, R1, L2 bzw. R2: Die Figur diagonal bewegen
+117=Drücke einen Knopf, um das Spiel fortzu|setzen.
+
+@italian.dat 305
+57=Croce direzionale in alto: Muovere il personaggio verso l'alto
+63=Croce direzionale in basso: Muovere il personaggio verso il basso
+67=Y: Visualizzare aiuto
+68=Croce direzionale sinistra: Muovere il personaggio verso sinistra
+69=Croce direzionale destra: Muovere il personaggio verso destra
+70=A: Visualizzare il menu azione / Validare l'azione
+71=B: Annullare l'ultima azione nel menu interazioni
+72=X: Scorciatoia inventario / Uscire dal menu interazioni
+75=L1, R1, L2 e R2: Spostare il personaggio in diagonale.
+117=Premi un pulsante per riprendere il gioco.
+
+@spanish.dat 305
+57=Cruceta arriba: Mover al personaje hacia arriba
+63=Cruceta abajo: Mover al personaje hacia abajo
+67=Y: Visualizar ayuda
+68=Cruceta izquierda: Mover al personaje hacia la izquierda
+69=Cruceta derecha: Mover al personaje hacia la derecha
+70=A: Visualizar menú Inter|acciones / Validar la acción
+71=B: Cancelar la última acción en el menú Inter|acciones
+72=X: Atajo inventario / Salir del menú Inter|acciones
+75=L1, R1, L2 y R2: Mover al personaje en diagonal
+117=Pulsa cualquier botón para continuar la partida.
+
 @french.dat 1166
 41=Croix directionnelle haut : Déplacer le personnage vers le haut
 47=Croix directionnelle bas : Déplacer le personnage vers le bas

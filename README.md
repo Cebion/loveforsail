@@ -14,12 +14,15 @@ names. The launcher works out what each build needs (`shim/src/GameProfile.java`
 
 - **Screen size**, in this order: `-Dmidp.width/-Dmidp.height`, a `WxH` in the file name, the
   manifest or a `.jad` next to the jar (`Nokia-MIDlet-Target-Display-Size`, `MIDlet-Display-Size`, ...),
-  full-screen PNGs inside the jar, then `Nokia-MIDlet-Original-Display-Size`. A Nokia `FullCanvas`
-  jar of at most 64 KB with none of these is a Series 40 build and gets 128x128. If nothing matches,
+  full-screen PNGs inside the jar, then `Nokia-MIDlet-Original-Display-Size`. A jar of at most
+  128 KB that uses the Nokia API (`com/nokia/mid/`) with none of these is a Series 40 build and
+  gets 128x128, and so does a jar whose widest image is at most 160 px (art for a 128-pixel-wide
+  screen; 128x160 when it uses the Samsung API). If nothing matches,
   it falls back to 240x320.
 - **Soft keys**: -6/-7 (Nokia, Sony Ericsson, Samsung), or Motorola -21/-22 / Siemens -1/-4 when
   the game's code uses those. Override with `-Dmidp.softkeys=L,R`.
 - **Phone APIs**: MIDP 2.0 (GameCanvas) and MIDP 1.0-style Canvas games, MMAPI sound, RMS saves,
+  the Samsung `AudioClip`/`Vibration`/`LCDLight` API,
   plus the Nokia UI API (`FullCanvas`, `DirectGraphics`, `DeviceControl`, `Sound`, including Smart
   Messaging ringtones, converted to MIDI and played on a General MIDI instrument) used by Series 40
   builds. If a build needs something that is still missing, the log says
@@ -28,8 +31,8 @@ names. The launcher works out what each build needs (`shim/src/GameProfile.java`
 The startup log shows what was picked, e.g.
 `[host] larry.jar: screen 240x320 (manifest Nokia-MIDlet-Target-Display-Size), soft keys -6/-7 (...)`.
 
-The button-prompt patches (see below) cover the 240x320 build (5 languages) and the 128x128 Nokia
-Series 40 build (English). Other builds keep their original prompts unless their text tables match.
+The button-prompt patches (see below) cover the 240x320 build (5 languages) and both 128x128 Nokia
+Series 40 builds (MIDP 1.0, English; MIDP 2.0 "s40v2", 5 languages). Other builds keep their original prompts unless their text tables match.
 
 ## Layout
 
@@ -76,7 +79,7 @@ PageUp = X, PageDown = Y, Esc = Start, Tab = Select, 1/3/7/9 = L1/R1/L2/R2.
 
 At load time the port rewrites the game's "press 5" style prompts (help screen, tutorial,
 minigame instructions) into gamepad button names. It also redraws the digit glyphs in the
-Spank-a-Monkey minigame (`biminig_button.png`) as button labels. This happens in memory and the
+Spank-a-Monkey minigame (`biminig_button.png`, 70x96 or 36x51) as button labels. This happens in memory and the
 jar stays untouched. A table is only patched when it has the expected string count. Pass
 `-Dmidp.nopatch=true` to see the original prompts.
 
