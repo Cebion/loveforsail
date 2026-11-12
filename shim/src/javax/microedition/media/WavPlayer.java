@@ -27,7 +27,10 @@ class WavPlayer extends BasePlayer {
             clip = AudioSystem.getClip();
             clip.open(ais);
             clip.addLineListener(e -> {
-                if (e.getType() == LineEvent.Type.STOP && !stopping) {
+                // Only a clip that played to its end; a STOP from an earlier stop() can arrive
+                // after the next start() has already cleared "stopping".
+                if (e.getType() == LineEvent.Type.STOP && !stopping && !clip.isRunning()
+                        && clip.getFramePosition() >= clip.getFrameLength() - 1) {
                     clip.setFramePosition(0);
                     endOfMedia();
                 }

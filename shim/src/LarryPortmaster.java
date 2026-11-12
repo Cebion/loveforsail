@@ -26,8 +26,12 @@ import javax.microedition.midlet.MIDlet;
  *   midp.window=WxH or N       windowed mode for desktop testing, N = scale (default: fullscreen)
  *   midp.rms.dir               save directory (default ./savedata)
  *   midp.soundfont             optional .sf2 for MIDI
+ *   midp.toneprogram           General MIDI instrument for Nokia ringtones (default 0, grand piano)
+ *   midp.tonecycle=true        debug: F5/F6 step through candidate ringtone instruments, number shown
  *   midp.dump.dir / midp.dump.every   debug: write every Nth frame as PNG
  *   midp.script                debug: file of "ms down|up keycode" lines for scripted input
+ *   midp.keyfifo               debug: named pipe of "down|up keycode" lines, read live
+ *   midp.watch=Cls.f:I,...     debug: print the game's static fields once a second
  *   midp.nopatch=true          show the original phone-keypad prompts
  */
 public final class LarryPortmaster {
@@ -35,6 +39,10 @@ public final class LarryPortmaster {
     private static int[] pendingFrame;
     private static boolean frameReady;
     private static volatile boolean running = true;
+
+    private static final boolean TONE_CYCLE = Boolean.getBoolean("midp.tonecycle");
+    private static int overlayNumber;
+    private static long overlayUntil;
 
     private static int softLeft = Canvas.KEYCODE_SOFT_LEFT;
     private static int softRight = Canvas.KEYCODE_SOFT_RIGHT;
@@ -114,6 +122,8 @@ public final class LarryPortmaster {
             return;
         }
 
+        startKeyFifo(System.getProperty("midp.keyfifo"));
+        startWatch(System.getProperty("midp.watch"), loader);
         ArrayList<long[]> script = loadScript(System.getProperty("midp.script"));
         long t0 = System.currentTimeMillis();
         int scriptPos = 0;
@@ -126,6 +136,14 @@ public final class LarryPortmaster {
                 int sc = ev & 0xFFFF;
                 if (type == SDL2Bridge.EVENT_QUIT) {
                     running = false;
+                } else if (TONE_CYCLE && (sc == 62 || sc == 63)) {   // F5/F6: ringtone instrument
+                    if (type == SDL2Bridge.EVENT_KEYDOWN) {
+                        overlayNumber = com.nokia.mid.sound.ShimTone.cycle(sc == 63 ? 1 : -1);
+                        overlayUntil = System.currentTimeMillis() + 2000;
+                        synchronized (frameLock) {
+                            frameReady = true;
+                        }
+                    }
                 } else if (type == SDL2Bridge.EVENT_KEYDOWN || type == SDL2Bridge.EVENT_KEYUP) {
                     int key = mapScancode(sc);
                     if (key != 0) {
@@ -152,7 +170,16 @@ public final class LarryPortmaster {
             }
             Canvas.dispatchIfStale(100);
             if (have) {
-                SDL2Bridge.updateFrame(frame, gw, gh);
+                if (System.currentTimeMillis() < overlayUntil) {
+                    int[] shown = frame.clone();
+                    drawNumber(shown, gw, gh, overlayNumber);
+                    SDL2Bridge.updateFrame(shown, gw, gh);
+                    synchronized (frameLock) {
+                        frameReady = true;   // keep redrawing until the label times out
+                    }
+                } else {
+                    SDL2Bridge.updateFrame(frame, gw, gh);
+                }
             } else {
                 try {
                     Thread.sleep(4);
@@ -168,6 +195,44 @@ public final class LarryPortmaster {
         SDL2Bridge.destroy();
         System.out.println("[host] exit");
         System.exit(0);
+    }
+
+    /** 3x5 digit glyphs, one row per 3 bits. */
+    private static final int[] DIGITS = {
+        075557, 022222, 071747, 071717, 055711, 074717, 074757, 071111, 075757, 075717,
+    };
+
+    /** Debug overlay: a number in the top-left corner, on a black box, drawn at 2x. */
+    private static void drawNumber(int[] px, int w, int h, int n) {
+        String txt = Integer.toString(n);
+        int scale = 2;
+        int bw = (txt.length() * 4 + 1) * scale;
+        int bh = 7 * scale;
+        for (int y = 0; y < bh && y < h; y++) {
+            for (int x = 0; x < bw && x < w; x++) {
+                px[y * w + x] = 0xFF000000;
+            }
+        }
+        for (int i = 0; i < txt.length(); i++) {
+            int g = DIGITS[txt.charAt(i) - '0'];
+            for (int row = 0; row < 5; row++) {
+                int bits = (g >> (3 * (4 - row))) & 7;
+                for (int col = 0; col < 3; col++) {
+                    if ((bits & (4 >> col)) == 0) {
+                        continue;
+                    }
+                    for (int dy = 0; dy < scale; dy++) {
+                        for (int dx = 0; dx < scale; dx++) {
+                            int x = (1 + i * 4 + col) * scale + dx;
+                            int y = (1 + row) * scale + dy;
+                            if (x < w && y < h) {
+                                px[y * w + x] = 0xFFFFFF00;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /** Point at the shim when a game version uses a phone API it does not provide yet. */
@@ -231,6 +296,76 @@ public final class LarryPortmaster {
             return Canvas.KEY_NUM0;                     // Keypad 0
         }
         return 0;
+    }
+
+    /** Debug: print the game's static fields ("Class.field,...") once a second. */
+    private static void startWatch(String spec, ClassLoader loader) {
+        if (spec == null) {
+            return;
+        }
+        Thread t = new Thread(() -> {
+            while (running) {
+                StringBuilder sb = new StringBuilder("[watch]");
+                for (String item : spec.split(",")) {
+                    int dot = item.lastIndexOf('.');
+                    String name = item.substring(dot + 1);
+                    String type = null;   // optional ":Z"/":I"/":J" suffix, obfuscated names repeat
+                    if (name.contains(":")) {
+                        type = name.substring(name.indexOf(':') + 1);
+                        name = name.substring(0, name.indexOf(':'));
+                    }
+                    try {
+                        java.lang.reflect.Field f = null;
+                        for (java.lang.reflect.Field c : Class.forName(item.substring(0, dot), false, loader)
+                                .getDeclaredFields()) {
+                            String d = c.getType() == boolean.class ? "Z" : c.getType() == int.class ? "I"
+                                    : c.getType() == long.class ? "J" : "L";
+                            if (c.getName().equals(name) && (type == null || type.equals(d))) {
+                                f = c;
+                                break;
+                            }
+                        }
+                        f.setAccessible(true);
+                        sb.append(' ').append(item).append('=').append(f.get(null));
+                    } catch (Throwable e) {
+                        sb.append(' ').append(item).append("=?");
+                    }
+                }
+                System.out.println(sb);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    return;
+                }
+            }
+        }, "watch");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** Debug: read "down|up keycode" lines from a named pipe while the game runs. */
+    private static void startKeyFifo(String path) {
+        if (path == null) {
+            return;
+        }
+        Thread t = new Thread(() -> {
+            while (running) {
+                try (BufferedReader r = new BufferedReader(new FileReader(path))) {
+                    String line;
+                    while ((line = r.readLine()) != null) {
+                        String[] p = line.trim().split("\\s+");
+                        if (p.length == 2) {
+                            Canvas.postKey(p[0].equals("down"), Integer.parseInt(p[1]));
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("[host] keyfifo error: " + e);
+                    return;
+                }
+            }
+        }, "keyfifo");
+        t.setDaemon(true);
+        t.start();
     }
 
     private static ArrayList<long[]> loadScript(String path) {

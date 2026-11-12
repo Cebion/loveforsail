@@ -148,6 +148,20 @@ class MidiPlayer extends BasePlayer {
         sequence = null;
     }
 
+    static void setProgram(int channel, int program) {
+        synchronized (MidiPlayer.class) {
+            if (synthReceiver == null) {
+                return;
+            }
+            try {
+                javax.sound.midi.ShortMessage m = new javax.sound.midi.ShortMessage();
+                m.setMessage(javax.sound.midi.ShortMessage.PROGRAM_CHANGE, channel, program, 0);
+                synthReceiver.send(m, -1);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
     private static void allNotesOff() {
         try {
             for (javax.sound.midi.MidiChannel ch : synth.getChannels()) {

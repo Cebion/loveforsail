@@ -18,13 +18,14 @@ import javax.imageio.ImageIO;
  *
  * Text: string tables (*.dat) are replaced by index from /patches/text.txt in the port jar.
  * File format: "@file.dat COUNT" starts a section (only applied when the table really has COUNT
- * strings), then "INDEX=replacement" lines; "\n" in a replacement is a newline.
+ * strings), then "INDEX=replacement" lines; "\n" in a replacement is a newline. A file can have
+ * several sections, one per game version (each version's table has its own string count).
  *
  * Image: the Spank-a-Monkey minigame draws the digit to press from biminig_button.png; each
  * digit glyph is redrawn as the gamepad button that now sends that digit.
  */
 final class ResourcePatches {
-    private static Map<String, Section> text;
+    private static Map<String, java.util.List<Section>> text;
 
     private static final class Section {
         int count;
@@ -42,13 +43,13 @@ final class ResourcePatches {
         if (name.equals(MINIGAME_SHEET)) {
             return patchMinigameSheet(data);
         }
-        Section s = textSections().get(name);
+        java.util.List<Section> s = textSections().get(name);
         return s == null ? data : patchTextTable(name, data, s);
     }
 
     // ---- text tables ---------------------------------------------------------------
 
-    private static synchronized Map<String, Section> textSections() {
+    private static synchronized Map<String, java.util.List<Section>> textSections() {
         if (text != null) {
             return text;
         }
@@ -71,7 +72,7 @@ final class ResourcePatches {
                     String[] p = line.substring(1).trim().split("\\s+");
                     cur = new Section();
                     cur.count = Integer.parseInt(p[1]);
-                    text.put(p[0], cur);
+                    text.computeIfAbsent(p[0], k -> new java.util.ArrayList<>()).add(cur);
                     continue;
                 }
                 int eq = line.indexOf('=');
@@ -87,13 +88,20 @@ final class ResourcePatches {
     }
 
     /** Layout (from the game's loader): int, int n*4, n flag ints, int, n UTF strings. */
-    private static byte[] patchTextTable(String name, byte[] data, Section s) throws IOException {
+    private static byte[] patchTextTable(String name, byte[] data, java.util.List<Section> sections)
+            throws IOException {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(data));
         int header = in.readInt();
         int sizeField = in.readInt();
         int n = sizeField / 4;
-        if (n != s.count) {
-            System.out.println("[patch] " + name + " has " + n + " strings, expected " + s.count + "; left unchanged");
+        Section s = null;
+        for (Section c : sections) {
+            if (c.count == n) {
+                s = c;
+            }
+        }
+        if (s == null) {
+            System.out.println("[patch] " + name + " has " + n + " strings, no matching table; left unchanged");
             return data;
         }
         int[] flags = new int[n];

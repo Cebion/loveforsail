@@ -14,20 +14,22 @@ names. The launcher works out what each build needs (`shim/src/GameProfile.java`
 
 - **Screen size**, in this order: `-Dmidp.width/-Dmidp.height`, a `WxH` in the file name, the
   manifest or a `.jad` next to the jar (`Nokia-MIDlet-Target-Display-Size`, `MIDlet-Display-Size`, ...),
-  full-screen PNGs inside the jar, then `Nokia-MIDlet-Original-Display-Size`. If nothing matches,
+  full-screen PNGs inside the jar, then `Nokia-MIDlet-Original-Display-Size`. A Nokia `FullCanvas`
+  jar of at most 64 KB with none of these is a Series 40 build and gets 128x128. If nothing matches,
   it falls back to 240x320.
 - **Soft keys**: -6/-7 (Nokia, Sony Ericsson, Samsung), or Motorola -21/-22 / Siemens -1/-4 when
   the game's code uses those. Override with `-Dmidp.softkeys=L,R`.
 - **Phone APIs**: MIDP 2.0 (GameCanvas) and MIDP 1.0-style Canvas games, MMAPI sound, RMS saves,
-  plus the Nokia UI API (`FullCanvas`, `DirectGraphics`, `DeviceControl`, `Sound`) used by Series 40
+  plus the Nokia UI API (`FullCanvas`, `DirectGraphics`, `DeviceControl`, `Sound`, including Smart
+  Messaging ringtones, converted to MIDI and played on a General MIDI instrument) used by Series 40
   builds. If a build needs something that is still missing, the log says
   `[host] this game version uses an API the shim does not provide: ...`.
 
 The startup log shows what was picked, e.g.
 `[host] larry.jar: screen 240x320 (manifest Nokia-MIDlet-Target-Display-Size), soft keys -6/-7 (...)`.
 
-The button-prompt patches (see below) are tied to the 240x320 build's files. Other builds keep
-their original prompts unless their text tables match.
+The button-prompt patches (see below) cover the 240x320 build (5 languages) and the 128x128 Nokia
+Series 40 build (English). Other builds keep their original prompts unless their text tables match.
 
 ## Layout
 

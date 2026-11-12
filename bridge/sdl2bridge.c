@@ -1,5 +1,6 @@
 /* JNI bridge between the Java MIDP shim and SDL2: window, frame upload, keyboard events. */
 #include <jni.h>
+#include <signal.h>
 #include <stdio.h>
 #include <SDL.h>
 
@@ -12,6 +13,31 @@ static SDL_Renderer *renderer;
 static SDL_Texture *texture;
 static int game_w, game_h;
 
+/* The JVM uses SIGSEGV/SIGBUS/SIGILL/SIGFPE internally (implicit null checks, safepoints). Some
+ * CFW SDL2 builds install their own handlers for these during init and re-raise, which kills the
+ * JVM, so the JVM's handlers are put back once SDL is up. */
+static const int jvm_signals[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGQUIT, SIGINT, SIGTERM, SIGHUP};
+#define NUM_JVM_SIGNALS (int)(sizeof(jvm_signals) / sizeof(jvm_signals[0]))
+static struct sigaction saved_actions[NUM_JVM_SIGNALS];
+
+static void save_jvm_signals(void)
+{
+    for (int i = 0; i < NUM_JVM_SIGNALS; i++)
+        sigaction(jvm_signals[i], NULL, &saved_actions[i]);
+}
+
+static void restore_jvm_signals(void)
+{
+    for (int i = 0; i < NUM_JVM_SIGNALS; i++) {
+        struct sigaction cur;
+        sigaction(jvm_signals[i], NULL, &cur);
+        if (cur.sa_sigaction != saved_actions[i].sa_sigaction) {
+            fprintf(stderr, "[sdl2bridge] restored JVM handler for signal %d\n", jvm_signals[i]);
+            sigaction(jvm_signals[i], &saved_actions[i], NULL);
+        }
+    }
+}
+
 JNIEXPORT jboolean JNICALL Java_SDL2Bridge_init(JNIEnv *env, jclass cls, jint gw, jint gh, jint ww, jint wh)
 {
     Uint32 flags = SDL_WINDOW_SHOWN;
@@ -21,6 +47,8 @@ JNIEXPORT jboolean JNICALL Java_SDL2Bridge_init(JNIEnv *env, jclass cls, jint gw
     game_w = gw;
     game_h = gh;
 
+    save_jvm_signals();
+    SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1");
     SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
         fprintf(stderr, "[sdl2bridge] SDL_Init: %s\n", SDL_GetError());
@@ -67,6 +95,7 @@ JNIEXPORT jboolean JNICALL Java_SDL2Bridge_init(JNIEnv *env, jclass cls, jint gw
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
 
     SDL_ShowCursor(SDL_DISABLE);
+    restore_jvm_signals();
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     SDL_RenderPresent(renderer);

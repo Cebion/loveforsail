@@ -27,6 +27,19 @@
 168=You can use objects from your inventory on items such as the doors. Select the 'HAND TOOL +' icon from the interaction menu on the door. Then, select the object you want to use it with and press A to validate.
 173=When using a phone, you can browse the topics list using up and down. Validate your choice with A. You can exit the topics list by pressing B.
 
+# Nokia Series 40 (128x128) build, English only
+@english.dat 257
+54=D-Pad up: Move the character up
+60=D-Pad down: Move the character down
+62=Y: Display help
+63=D-Pad left: Move the character left
+64=D-Pad right: Move the character right
+65=A: Pop up action menu / Validate action
+66=B: Cancel last interaction menu action
+67=X: Inventory shortcut / Exit interaction menu
+70=L1, R1, L2 and R2: Move the character diagonally
+110=Press any button to resume game.
+
 @french.dat 1166
 41=Croix directionnelle haut : Déplacer le personnage vers le haut
 47=Croix directionnelle bas : Déplacer le personnage vers le bas

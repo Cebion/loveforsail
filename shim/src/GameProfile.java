@@ -87,7 +87,45 @@ final class GameProfile {
             set(s[0], s[1], "manifest Nokia-MIDlet-Original-Display-Size");
             return;
         }
+        // Nokia Series 40 (1st/2nd edition) phones were 128x128 and took jars of at most 64 KB.
+        if (jar.length() <= 64 * 1024 && classesMention(jar, "com/nokia/mid/ui/FullCanvas")) {
+            set(128, 128, "Nokia Series 40 build (FullCanvas, jar under 64 KB)");
+            return;
+        }
         set(240, 320, "default, could not detect; set -Dmidp.width/-Dmidp.height");
+    }
+
+    /** True when any class in the jar references the given internal class name. */
+    private static boolean classesMention(File jar, String internalName) {
+        byte[] needle = internalName.getBytes(StandardCharsets.UTF_8);
+        try (JarFile jf = new JarFile(jar)) {
+            for (Enumeration<JarEntry> e = jf.entries(); e.hasMoreElements();) {
+                JarEntry je = e.nextElement();
+                if (!je.getName().endsWith(".class")) {
+                    continue;
+                }
+                try (InputStream in = jf.getInputStream(je)) {
+                    if (indexOf(in.readAllBytes(), needle) >= 0) {
+                        return true;
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return false;
+    }
+
+    private static int indexOf(byte[] hay, byte[] needle) {
+        outer:
+        for (int i = 0; i <= hay.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) {
+                if (hay[i + j] != needle[j]) {
+                    continue outer;
+                }
+            }
+            return i;
+        }
+        return -1;
     }
 
     private void set(int w, int h, String source) {
